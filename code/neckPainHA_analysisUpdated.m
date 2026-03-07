@@ -6,9 +6,89 @@ load([Pfizer_dataBasePath 'PfizerHAdataAug23'])
 
 addpath '/Users/pattersonc/Documents/MATLAB/commonFx'
 
+%% load([data_path '/ICDcodes.mat']);
+
+data_pathICD = getpref('assocSxHA','pfizerDataPath');
+load([data_pathICD '/ICDcodes.mat']);
+
+Chop_icd = icd;
+clear icd
+
+chop_subjects = unique(data.record_id);
+temp = cellstr('no dx');
+data.ICD = categorical(repmat(temp,height(data),1));
+for x = 1:length(chop_subjects)
+    
+    icd = cellstr(Chop_icd.Dx(ismember(Chop_icd.RecordID,chop_subjects(x))));
+    
+    
+    if ~isempty(icd)
+        
+        iih = contains(icd,'intracranial hypertension','IgnoreCase',true);
+        pseudoT = contains(icd,'pseudotumor','IgnoreCase',true);
+        pap = contains(icd,'papilledema','IgnoreCase',true);
+        pseudopap = contains(icd,'pseudopapilledema','IgnoreCase',true);
+        high_pressure = contains(icd,'elevated intracranial pressure','IgnoreCase',true);
+        low_pressure = contains(icd,'intracranial hypotension','IgnoreCase',true);
+        leak = contains(icd,'CSF leak','IgnoreCase',true);
+        vascular = contains(icd,'cerebrovascular','IgnoreCase',true);
+        vascularHA = contains(icd,'vascular headache','IgnoreCase',true);
+        bleed = contains(icd,'bleeding in brain','IgnoreCase',true);
+        bleed2 = contains(icd,'intracranial hemorrhage','IgnoreCase',true);
+        tumor = contains(icd,'brain tumor','IgnoreCase',true);
+        Btumor = contains(icd,'brainstem tumor','IgnoreCase',true);
+        mass = contains(icd,'intracranial mass','IgnoreCase',true);
+        lesion = contains(icd,'brain lesion','IgnoreCase',true);
+        wm = contains(icd,'white matter','IgnoreCase',true);
+        demyelin = contains(icd,'demyelin','IgnoreCase',true);
+        neck_mass = contains(icd,'Neck mass','IgnoreCase',true);
+        neck_mass2 = contains(icd,'Localized swelling, mass and lump, neck','IgnoreCase',true);
+        neck_mass3 = contains(icd,'Swelling, mass, or lump in head and neck','IgnoreCase',true);
+        neck_swell = contains(icd,'Neck swelling','IgnoreCase',true);
+        neck_fracture = contains(icd,'neck fracture','IgnoreCase',true);
+        neck_abscess = contains(icd,'Abscess of neck','IgnoreCase',true);
+        neck_nerve_inj = contains(icd,'Injury of other specified nerves of neck','IgnoreCase',true);
+
+
+        if sum(leak)>0||sum(low_pressure)>0
+            data.ICD(x) = 'intracranial hypotension';
+        end
+        
+        if (sum(pap)>0||sum(iih)>0||sum(pseudoT)>0||sum(high_pressure)>0) && sum(pseudopap)==0
+            data.ICD(x) = 'intracranial hypertension';
+        end
+        
+        if sum(bleed)>0||sum(bleed2)>0||sum(vascular)>0||sum(vascularHA)>0
+            data.ICD(x) = 'vascular';
+        end
+        
+        if sum(lesion)>0
+            data.ICD(x) = 'brain lesion';
+        end
+        
+        if sum(demyelin)>0||sum(wm)>0
+            data.ICD(x) = 'white matter';
+        end
+
+        if sum(tumor)>0||sum(Btumor)>0||sum(mass)>0
+            data.ICD(x) = 'tumor';
+        end
+
+        if sum(neck_fracture)>0||sum(neck_nerve_inj)>0
+            data.ICD(x) = 'neck fracture/injury';
+        end
+
+        if sum(neck_mass)>0||sum(neck_mass2)>0||sum(neck_mass3)>0||sum(neck_swell)>0
+            data.ICD(x) = 'neck swelling/mass/abscess';
+        end
+        
+    end
+clear icd iih pseudoT mass bleed bleed2 vascular vascularHA tumor Btumor low_pressure leak demyelin wm high_pressure pap neck_mass neck_mass2 neck_mass3 neck_swell neck_fracture neck_nerve_inj
+end
+
 %% apply exclusion criteria
 
-data_date = data(data.visit_dt>'2017-06-01' & data.visit_dt<'2023-12-31',:); % date criteria
+data_date = data(data.visit_dt>'2017-06-01' & data.visit_dt<'2023-12-31' & data.ICD=='no dx',:); % date criteria
 data_age = data_date(data_date.age>=6 & data_date.age<18,:); % age criteria
 data_start = data_age(data_age.p_current_ha_pattern=='episodic' | data_age.p_current_ha_pattern=='cons_same' | data_age.p_current_ha_pattern=='cons_flare',:); % started the questionnaire
 
@@ -126,12 +206,13 @@ data_comp.tingling = categorical(data_comp.tingling,[0 1 2 3],{'none','unilatera
 
 
 % anxiety and depression
+data_comp.psych_ros = sum(table2array(data_comp(:,534:546)),2); % questions on psychiatric diagnoses was entered
 data_comp.anx = NaN*ones(height(data_comp),1);
-data_comp.anx(data_start.p_psych_prob___anxiety==0 data_start.psych_ros>0) = 0;
-data_comp.anx(data_start.p_psych_prob___anxiety==1 & data_start.psych_ros>0) = 1;
+data_comp.anx(data_comp.p_psych_prob___anxiety==0 & data_comp.psych_ros>0) = 0;
+data_comp.anx(data_comp.p_psych_prob___anxiety==1 & data_comp.psych_ros>0) = 1;
 data_comp.dep = NaN*ones(height(data_comp),1);
-data_comp.dep(data_start.p_psych_prob___depress==0 data_start.psych_ros>0) = 0;
-data_comp.dep(data_start.p_psych_prob___depress==1 & data_start.psych_ros>0) = 1;
+data_comp.dep(data_comp.p_psych_prob___depress==0 & data_comp.psych_ros>0) = 0;
+data_comp.dep(data_comp.p_psych_prob___depress==1 & data_comp.psych_ros>0) = 1;
 
 data_comp.dysauto = zeros(height(data_comp),1);
 data_comp.dysauto(data_comp.p_heart_prob___faint==1 | data_comp.p_heart_prob___pots==1) = 1;
@@ -162,6 +243,8 @@ data_comp.ICHD3dx = ICHD3.dx;
 [tblRaceDc,ChiRaceDc,pRaceDc] = crosstab(data_comp.race,data_comp.dailycont);
 [tblethDc,ChiEthDc,pEthDc] = crosstab(data_comp.ethnicity,data_comp.dailycont);
 [tblDxDc,ChiDxDc,pDxDc] = crosstab(data_comp.ICHD3dx,data_comp.dailycont);
+
+% CHECK THIS!
 [pSevDc,tblSevDc,statsSevDc] = kruskalwallis(data_comp.ageY,data_comp.severity_grade);
 [pFreqDc,tblFreqDc,statsFreqDc] = kruskalwallis(data_comp.ageY,data_comp.freq_bad);
 [pDisDc,tblDisDc,statsDisDc] = kruskalwallis(data_comp.ageY,data_comp.pedmidas_grade);
@@ -180,6 +263,7 @@ data_comp.ICHD3dx = ICHD3.dx;
 [tblValsDc,ChiValsDc,pValsDc] = crosstab(data_comp.gender,data_comp.valsalva);
 [tblPosDc,ChiPosDc,pPosDc] = crosstab(data_comp.gender,data_comp.position);
 [tblLatDc,ChiLatDc,pLatDc] = crosstab(data_comp.gender,data_comp.pain_lat);
+
 %% Primary outcome: logistic regression
 
 % univariable
@@ -234,13 +318,18 @@ mdl_tingling = fitglm(data_comp,'neckPain ~ tingling','Distribution','binomial')
 tbl_tinglingNp = brm_tbl_plot(mdl_tingling);
 mdl_dysauto = fitglm(data_comp,'neckPain ~ dysauto','Distribution','binomial');
 tbl_dysautoNp = brm_tbl_plot(mdl_dysauto);
+mdl_anx = fitglm(data_comp,'neckPain ~ anx','Distribution','binomial');
+tbl_anxNp = brm_tbl_plot(mdl_anx);
+mdl_dep = fitglm(data_comp,'neckPain ~ dep','Distribution','binomial');
+tbl_depNp = brm_tbl_plot(mdl_dep);
 mdl_abd = fitglm(data_comp,'neckPain ~ abd','Distribution','binomial');
 tbl_abdNp = brm_tbl_plot(mdl_abd);
 
 
 % multivariable
 mdl_Mult = fitglm(data_comp,...
-    'neckPain ~ ageY + gender + race + ethnicity + dailycont + severity_grade + pedmidas_grade + freq_bad + pain_lat + active + valsalva + position + pulsate + pressure + neuralgia + lighthead + spinning + balance + ringing + thinking + blurry + sensory_sensitivity + tingling + ICHD3dx + dysauto + abd',...
+    ['neckPain ~ ageY + gender + race + ethnicity + dailycont + severity_grade + pedmidas_grade + freq_bad + pain_lat + active + valsalva + position + pulsate + pressure + neuralgia + lighthead + spinning + balance + ringing + thinking' ...
+    ' + blurry + sensory_sensitivity + tingling + ICHD3dx + dysauto + abd + anx + dep'],...
     'Distribution','binomial');
 tbl_MultNp = brm_tbl_plot(mdl_Mult);
 
@@ -255,3 +344,6 @@ tbl_MultFinalNp = brm_tbl_plot(mdl_MultFinal);
 
 mdl_incomp = fitglm(comp_incomp,'complete ~ ageY + gender + race + ethnicity','Distribution','binomial');
 tbl_incomp = brm_tbl_plot(mdl_incomp);
+
+[a,b,c] = runstest(data_comp.freq_bad,'ud');
+[a2,b2,c2] = runstest(data_comp.p_pedmidas_score,'ud')
