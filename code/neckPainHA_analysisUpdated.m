@@ -119,6 +119,7 @@ data_incomp.complete = zeros(height(data_incomp),1);
 
 comp_incomp = [data_comp;data_incomp];
 
+
 %% Define main outcome, and main predictor variables
 
 % Neck pain, main outcome variable
@@ -130,11 +131,12 @@ data_comp.dailycont = zeros(height(data_comp),1);
 data_comp.dailycont(data_comp.p_current_ha_pattern=='cons_same' | data_comp.p_current_ha_pattern=='cons_flare' | data_comp.p_fre_bad=='daily' | data_comp.p_fre_bad=='always') = 1;
 
 % convert PedMIDAS score to grade
-data_comp.pedmidas_grade = NaN*ones(height(data_comp),1);
-data_comp.pedmidas_grade(data_comp.p_pedmidas_score<=10) = 0;
-data_comp.pedmidas_grade(data_comp.p_pedmidas_score>10 & data_comp.p_pedmidas_score<=30) = 1;
-data_comp.pedmidas_grade(data_comp.p_pedmidas_score>30 & data_comp.p_pedmidas_score<=50) = 2;
-data_comp.pedmidas_grade(data_comp.p_pedmidas_score>50) = 3;
+data_comp.pedmidas_grade2 = NaN*ones(height(data_comp),1);
+data_comp.pedmidas_grade2(data_comp.p_pedmidas_score<=10) = 0;
+data_comp.pedmidas_grade2(data_comp.p_pedmidas_score>10 & data_comp.p_pedmidas_score<=30) = 1;
+data_comp.pedmidas_grade2(data_comp.p_pedmidas_score>30 & data_comp.p_pedmidas_score<=50) = 2;
+data_comp.pedmidas_grade2(data_comp.p_pedmidas_score>50) = 3;
+data_comp.pedmidas_grade = categorical(data_comp.pedmidas_grade2,[0,1,2,3],{'none','mild','mod','sev'});
 
 % rank bad headache frequency
 data_comp.freq_bad = NaN*ones(height(data_comp),1);
@@ -148,10 +150,11 @@ data_comp.freq_bad (data_comp.p_fre_bad=='daily') = 7;
 data_comp.freq_bad (data_comp.p_fre_bad=='always') = 8;
 
 % rank severity grade
-data_comp.severity_grade = NaN*ones(height(data_comp),1);
-data_comp.severity_grade(data_comp.p_sev_overall=='mild') = 1;
-data_comp.severity_grade(data_comp.p_sev_overall=='mod') = 2;
-data_comp.severity_grade(data_comp.p_sev_overall=='sev') = 3;
+data_comp.severity_grade = data_comp.p_sev_overall;
+data_comp.severity_grade2 = NaN*ones(height(data_comp),1);
+data_comp.severity_grade2(data_comp.p_sev_overall=='mild') = 1;
+data_comp.severity_grade2(data_comp.p_sev_overall=='mod') = 2;
+data_comp.severity_grade2(data_comp.p_sev_overall=='sev') = 3;
 
 % activity as a trigger
 data_comp.active = NaN*ones(height(data_comp),1);
@@ -159,12 +162,15 @@ data_comp.active(data_comp.p_activity == 'feel_worse' | data_comp.p_trigger___ex
 data_comp.active((data_comp.p_activity == 'feel_better' | data_comp.p_activity == 'no_change' | data_comp.p_activity == 'move') & data_comp.p_trigger___exercise==0) = 0;
 
 % Determine if valsalva is a trigger for headache
-data_comp.valsalva = sum(table2array(data_comp(:,228:230)),2);
-data_comp.valsalva(data_comp.valsalva>0) = 1;
+data_comp.valsalva = NaN*ones(height(data_comp),1);
+ValPos = sum(table2array(data_comp(:,227:232)),2);
+Valsalva = sum(table2array(data_comp(:,228:230)),2);
+data_comp.valsalva(Valsalva==0 & ValPos>0) = 0;
+data_comp.valsalva(Valsalva>0) = 1;
 
 % Determine if headache is positional
 data_comp.position = zeros(height(data_comp),1);
-data_comp.position(data_comp.p_valsalva_position___stand==0 & data_comp.p_valsalva_position___lie==0 & (data_comp.p_valsalva_position___none==1 | data_comp.valsalva==1)) = 1;
+data_comp.position(data_comp.p_valsalva_position___stand==0 & data_comp.p_valsalva_position___lie==0 & ValPos>0) = 1;
 data_comp.position(data_comp.p_valsalva_position___stand==1 & data_comp.p_valsalva_position___lie==0) = 2;
 data_comp.position(data_comp.p_valsalva_position___stand==0 & data_comp.p_valsalva_position___lie==1) = 3;
 data_comp.position(data_comp.p_valsalva_position___stand==1 & data_comp.p_valsalva_position___lie==1) = 4;
@@ -186,19 +192,30 @@ data_comp.pain_lat = removecats(data_comp.pain_lat,{'missing'});
 
 
 % associated symptoms
-data_comp.sensory_sensitivity = zeros(height(data_comp),1);
-data_comp.sensory_sensitivity(data_comp.p_trigger___light==1 | data_comp.p_assoc_sx_oth_sx___light) = data_comp.sensory_sensitivity(data_comp.p_trigger___light==1 | data_comp.p_assoc_sx_oth_sx___light) + 1;
-data_comp.sensory_sensitivity(data_comp.p_trigger___noises==1 | data_comp.p_assoc_sx_oth_sx___sound) = data_comp.sensory_sensitivity(data_comp.p_trigger___noises==1 | data_comp.p_assoc_sx_oth_sx___sound) + 1;
-data_comp.sensory_sensitivity(data_comp.p_trigger___smells==1 | data_comp.p_assoc_sx_oth_sx___smell) = data_comp.sensory_sensitivity(data_comp.p_trigger___smells==1 | data_comp.p_assoc_sx_oth_sx___smell) + 1;
+data_comp.sensory_sensitivity2 = NaN*ones(height(data_comp),1);
+Trigger = sum(table2array(data_comp(:,198:221)),2);
+AssocSx = sum(table2array(data_comp(:,235:299)),2);
+data_comp.sensory_sensitivity2(Trigger>0|AssocSx>0) = 0;
+data_comp.sensory_sensitivity2(data_comp.p_trigger___light==1 | data_comp.p_assoc_sx_oth_sx___light) = data_comp.sensory_sensitivity2(data_comp.p_trigger___light==1 | data_comp.p_assoc_sx_oth_sx___light) + 1;
+data_comp.sensory_sensitivity2(data_comp.p_trigger___noises==1 | data_comp.p_assoc_sx_oth_sx___sound) = data_comp.sensory_sensitivity2(data_comp.p_trigger___noises==1 | data_comp.p_assoc_sx_oth_sx___sound) + 1;
+data_comp.sensory_sensitivity2(data_comp.p_trigger___smells==1 | data_comp.p_assoc_sx_oth_sx___smell) = data_comp.sensory_sensitivity2(data_comp.p_trigger___smells==1 | data_comp.p_assoc_sx_oth_sx___smell) + 1;
+data_comp.sensory_sensitivity = categorical(data_comp.sensory_sensitivity2);
 
 data_comp.lighthead = data_comp.p_assoc_sx_oth_sx___lighthead;
+data_comp.lighthead(AssocSx==0) = NaN;
 data_comp.spinning = data_comp.p_assoc_sx_oth_sx___spinning;
+data_comp.spinning(AssocSx==0) = NaN;
 data_comp.balance = data_comp.p_assoc_sx_oth_sx___balance;
+data_comp.balance(AssocSx==0) = NaN;
 data_comp.ringing = data_comp.p_assoc_sx_oth_sx___ringing;
+data_comp.ringing(AssocSx==0) = NaN;
 data_comp.thinking = data_comp.p_assoc_sx_oth_sx___think;
+data_comp.thinking(AssocSx==0) = NaN;
 data_comp.blurry = data_comp.p_assoc_sx_vis___blur;
+data_comp.blurry(AssocSx==0) = NaN;
 
-data_comp.tingling = zeros(height(data_comp),1);
+data_comp.tingling = NaN*ones(height(data_comp),1);
+data_comp.tingling(AssocSx>0) = 0;
 data_comp.tingling((data_comp.p_assoc_sx_neur_uni___numb==1 | data_comp.p_assoc_sx_neur_uni___tingle==1) & (data_comp.p_assoc_sx_neur_bil___numb==0 & data_comp.p_assoc_sx_neur_bil___tingle==0)) = 1; % unilateral only
 data_comp.tingling((data_comp.p_assoc_sx_neur_uni___numb==0 & data_comp.p_assoc_sx_neur_uni___tingle==0) & (data_comp.p_assoc_sx_neur_bil___numb==1 | data_comp.p_assoc_sx_neur_bil___tingle==1)) = 2; % bilateral only
 data_comp.tingling((data_comp.p_assoc_sx_neur_uni___numb==1 | data_comp.p_assoc_sx_neur_uni___tingle==1) & (data_comp.p_assoc_sx_neur_bil___numb==1 | data_comp.p_assoc_sx_neur_bil___tingle==1)) = 3; % unilateral both
@@ -206,20 +223,42 @@ data_comp.tingling = categorical(data_comp.tingling,[0 1 2 3],{'none','unilatera
 
 
 % anxiety and depression
-data_comp.psych_ros = sum(table2array(data_comp(:,534:546)),2); % questions on psychiatric diagnoses was entered
+data_comp.ros = sum(table2array(data_comp(:,429:562)),2); % questions on psychiatric diagnoses was entered
 data_comp.anx = NaN*ones(height(data_comp),1);
-data_comp.anx(data_comp.p_psych_prob___anxiety==0 & data_comp.psych_ros>0) = 0;
-data_comp.anx(data_comp.p_psych_prob___anxiety==1 & data_comp.psych_ros>0) = 1;
+data_comp.anx(data_comp.p_psych_prob___anxiety==0 & data_comp.ros>0) = 0;
+data_comp.anx(data_comp.p_psych_prob___anxiety==1 & data_comp.ros>0) = 1;
 data_comp.dep = NaN*ones(height(data_comp),1);
-data_comp.dep(data_comp.p_psych_prob___depress==0 & data_comp.psych_ros>0) = 0;
-data_comp.dep(data_comp.p_psych_prob___depress==1 & data_comp.psych_ros>0) = 1;
+data_comp.dep(data_comp.p_psych_prob___depress==0 & data_comp.ros>0) = 0;
+data_comp.dep(data_comp.p_psych_prob___depress==1 & data_comp.ros>0) = 1;
 
-data_comp.dysauto = zeros(height(data_comp),1);
+data_comp.dysauto = NaN*ones(height(data_comp),1);
+data_comp.dysauto(data_comp.ros>0) = 0;
 data_comp.dysauto(data_comp.p_heart_prob___faint==1 | data_comp.p_heart_prob___pots==1) = 1;
 
-data_comp.abd = zeros(height(data_comp),1);
+data_comp.abd = NaN*ones(height(data_comp),1);
+data_comp.abd(data_comp.ros>0) = 0;
 data_comp.abd(data_comp.p_gi_prob___abd_pain==1) = 1;
 
+
+% [a,b,c] = runstest(data_comp.freq_bad,'ud');
+% [a2,b2,c2] = runstest(log(data_comp.p_pedmidas_score),'ud');
+
+data_comp.pedmidas = log(data_comp.p_pedmidas_score);
+data_comp.pedmidas(isinf(data_comp.pedmidas)) = 0;
+
+%% calculate minima and maxima of models with position and valsalva, and comorbidities
+% data_comp.valsalva(isnan(data_comp.valsalva)) = 1;
+% data_comp.valsalva(isnan(data_comp.valsalva)) = 0;
+% data_comp.position(data_comp.position=='missing') = 'both';
+% data_comp.position(data_comp.position=='missing') = 'neither';
+% data_comp.anx(isnan(data_comp.anx)) = 0;
+% data_comp.anx(isnan(data_comp.anx)) = 1;
+% data_comp.dep(isnan(data_comp.dep)) = 0;
+% data_comp.dep(isnan(data_comp.dep)) = 1;
+% data_comp.abd(isnan(data_comp.abd)) = 0;
+% data_comp.abd(isnan(data_comp.abd)) = 1;
+% data_comp.dysauto(isnan(data_comp.dysauto)) = 0;
+% data_comp.dysauto(isnan(data_comp.dysauto)) = 1;
 %% Headache diagnosis
 data_comp.p_con_pattern_duration = categorical(data_comp.p_con_pattern_duration);
 data_comp.p_epi_fre_dur = categorical(data_comp.p_epi_fre_dur);
@@ -238,112 +277,110 @@ data_comp.neuralgia = ICHD3.neuralgia;
 data_comp.ICHD3dx = ICHD3.dx;
 
 %% Primary predictor (daily/continuous headache)
-[pAgeDc,tblAgeDc,statsAgeDc] = kruskalwallis(data_comp.ageY,data_comp.dailycont);
+[pAgeDc,tblAgeDc,statsAgeDc] = ranksum(data_comp.ageY,data_comp.dailycont);
 [tblSexDc,ChiSexDc,pSexDc] = crosstab(data_comp.gender,data_comp.dailycont);
 [tblRaceDc,ChiRaceDc,pRaceDc] = crosstab(data_comp.race,data_comp.dailycont);
 [tblethDc,ChiEthDc,pEthDc] = crosstab(data_comp.ethnicity,data_comp.dailycont);
 [tblDxDc,ChiDxDc,pDxDc] = crosstab(data_comp.ICHD3dx,data_comp.dailycont);
-
-% CHECK THIS!
-[pSevDc,tblSevDc,statsSevDc] = kruskalwallis(data_comp.ageY,data_comp.severity_grade);
-[pFreqDc,tblFreqDc,statsFreqDc] = kruskalwallis(data_comp.ageY,data_comp.freq_bad);
-[pDisDc,tblDisDc,statsDisDc] = kruskalwallis(data_comp.ageY,data_comp.pedmidas_grade);
-[tblPressureDc,ChiPressureDc,pPressureDc] = crosstab(data_comp.gender,data_comp.pressure);
-[tblPulsateDc,ChiPulsateDc,pPulsateDc] = crosstab(data_comp.gender,data_comp.pulsate);
-[tblNeuralDc,ChiNeuralDc,pNeuralDc] = crosstab(data_comp.gender,data_comp.neuralgia);
-[tblLightheadDc,ChiLightheadDc,pLightheadDc] = crosstab(data_comp.gender,data_comp.lighthead);
-[tblRingDc,ChiRingDc,pRingDc] = crosstab(data_comp.gender,data_comp.ringing);
-[tblSpinDc,ChiSpinDc,pSpinDc] = crosstab(data_comp.gender,data_comp.spinning);
-[tblBalanceDc,ChiBalanceDc,pBalanceDc] = crosstab(data_comp.gender,data_comp.balance);
-[tblBlureDc,ChiBlurDc,pBlurDc] = crosstab(data_comp.gender,data_comp.blurry);
-[tblThinkDc,ChiThinkDc,pThinkDc] = crosstab(data_comp.gender,data_comp.thinking);
-[pSensDc,tblSensDc,statsSensDc] = kruskalwallis(data_comp.ageY,data_comp.sensory_sensitivity);
-[tblTingleDc,ChiTingleDc,pTingleDc] = crosstab(data_comp.gender,data_comp.tingling);
-[tblActiveDc,ChiActiveDc,pActiveDc] = crosstab(data_comp.gender,data_comp.active);
-[tblValsDc,ChiValsDc,pValsDc] = crosstab(data_comp.gender,data_comp.valsalva);
-[tblPosDc,ChiPosDc,pPosDc] = crosstab(data_comp.gender,data_comp.position);
-[tblLatDc,ChiLatDc,pLatDc] = crosstab(data_comp.gender,data_comp.pain_lat);
+[pSevDc,tblSevDc,statsSevDc] = ranksum(data_comp.dailycont,data_comp.severity_grade2);
+[pFreqDc,tblFreqDc,statsFreqDc] = ranksum(data_comp.dailycont,data_comp.freq_bad);
+[pDisDc,tblDisDc,statsDisDc] = ranksum(data_comp.dailycont,data_comp.pedmidas_grade2);
+[tblPressureDc,ChiPressureDc,pPressureDc] = crosstab(data_comp.dailycont,data_comp.pressure);
+[tblPulsateDc,ChiPulsateDc,pPulsateDc] = crosstab(data_comp.dailycont,data_comp.pulsate);
+[tblNeuralDc,ChiNeuralDc,pNeuralDc] = crosstab(data_comp.dailycont,data_comp.neuralgia);
+[tblLightheadDc,ChiLightheadDc,pLightheadDc] = crosstab(data_comp.dailycont,data_comp.lighthead);
+[tblRingDc,ChiRingDc,pRingDc] = crosstab(data_comp.dailycont,data_comp.ringing);
+[tblSpinDc,ChiSpinDc,pSpinDc] = crosstab(data_comp.dailycont,data_comp.spinning);
+[tblBalanceDc,ChiBalanceDc,pBalanceDc] = crosstab(data_comp.dailycont,data_comp.balance);
+[tblBlureDc,ChiBlurDc,pBlurDc] = crosstab(data_comp.dailycont,data_comp.blurry);
+[tblThinkDc,ChiThinkDc,pThinkDc] = crosstab(data_comp.dailycont,data_comp.thinking);
+[pSensDc,tblSensDc,statsSensDc] = ranksum(data_comp.dailycont,data_comp.sensory_sensitivity2);
+[tblTingleDc,ChiTingleDc,pTingleDc] = crosstab(data_comp.dailycont,data_comp.tingling);
+[tblActiveDc,ChiActiveDc,pActiveDc] = crosstab(data_comp.dailycont,data_comp.active);
+[tblValsDc,ChiValsDc,pValsDc] = crosstab(data_comp.dailycont,data_comp.valsalva);
+[tblPosDc,ChiPosDc,pPosDc] = crosstab(data_comp.dailycont,data_comp.position);
+[tblLatDc,ChiLatDc,pLatDc] = crosstab(data_comp.dailycont,data_comp.pain_lat);
 
 %% Primary outcome: logistic regression
 
 % univariable
-mdl_age = fitglm(data_comp,'neckPain ~ ageY','Distribution','binomial');
+mdl_age = fitglm(data_comp,'neckPain ~ ageY','Distribution','binomial','Link','logit');
 tbl_ageNp = brm_tbl_plot(mdl_age);
-mdl_sex = fitglm(data_comp,'neckPain ~ gender','Distribution','binomial');
+mdl_sex = fitglm(data_comp,'neckPain ~ gender','Distribution','binomial','Link','logit');
 tbl_sexNp = brm_tbl_plot(mdl_sex);
-mdl_race = fitglm(data_comp,'neckPain ~ race','Distribution','binomial');a = ExpCalc95fromSE(table2array(mdl_sex.Coefficients(2,1)),table2array(mdl_sex.Coefficients(2,2)));
+mdl_race = fitglm(data_comp,'neckPain ~ race','Distribution','binomial','Link','logit');
+% a = ExpCalc95fromSE(table2array(mdl_sex.Coefficients(2,1)),table2array(mdl_sex.Coefficients(2,2)));
 tbl_raceNp = brm_tbl_plot(mdl_race);
-mdl_ethnicity = fitglm(data_comp,'neckPain ~ ethnicity','Distribution','binomial');
+mdl_ethnicity = fitglm(data_comp,'neckPain ~ ethnicity','Distribution','binomial','Link','logit');
 tbl_ethnicityNp = brm_tbl_plot(mdl_ethnicity);
-mdl_severity = fitglm(data_comp,'neckPain ~ severity_grade','Distribution','binomial');
+mdl_severity = fitglm(data_comp,'neckPain ~ severity_grade','Distribution','binomial','Link','logit');
 tbl_severityNp = brm_tbl_plot(mdl_severity);
-mdl_disability = fitglm(data_comp,'neckPain ~ pedmidas_grade','Distribution','binomial');
+mdl_disability = fitglm(data_comp,'neckPain ~ pedmidas_grade','Distribution','binomial','Link','logit');
 tbl_disabilityNp = brm_tbl_plot(mdl_disability);
-mdl_freq_bad = fitglm(data_comp,'neckPain ~ freq_bad','Distribution','binomial');
+mdl_freq_bad = fitglm(data_comp,'neckPain ~ freq_bad','Distribution','binomial','Link','logit');
 tbl_freq_badNp = brm_tbl_plot(mdl_freq_bad);
-mdl_cont = fitglm(data_comp,'neckPain ~ dailycont','Distribution','binomial');
+mdl_cont = fitglm(data_comp,'neckPain ~ dailycont','Distribution','binomial','Link','logit');
 tbl_contNp = brm_tbl_plot(mdl_cont);
-mdl_pain_lat = fitglm(data_comp,'neckPain ~ pain_lat','Distribution','binomial');
+mdl_pain_lat = fitglm(data_comp,'neckPain ~ pain_lat','Distribution','binomial','Link','logit');
 tbl_pain_latNp = brm_tbl_plot(mdl_pain_lat);
-mdl_pressure = fitglm(data_comp,'neckPain ~ pressure','Distribution','binomial');
+mdl_pressure = fitglm(data_comp,'neckPain ~ pressure','Distribution','binomial','Link','logit');
 tbl_pressureNp = brm_tbl_plot(mdl_pressure);
-mdl_pulsate = fitglm(data_comp,'neckPain ~ pulsate','Distribution','binomial');
+mdl_pulsate = fitglm(data_comp,'neckPain ~ pulsate','Distribution','binomial','Link','logit');
 tbl_pulsateNp = brm_tbl_plot(mdl_pulsate);
-mdl_neuralgia = fitglm(data_comp,'neckPain ~ neuralgia','Distribution','binomial');
+mdl_neuralgia = fitglm(data_comp,'neckPain ~ neuralgia','Distribution','binomial','Link','logit');
 tbl_neuralgiaNp = brm_tbl_plot(mdl_neuralgia);
-mdl_active = fitglm(data_comp,'neckPain ~ active','Distribution','binomial');
+mdl_active = fitglm(data_comp,'neckPain ~ active','Distribution','binomial','Link','logit');
 tbl_activeNp = brm_tbl_plot(mdl_active);
-mdl_valsalva = fitglm(data_comp,'neckPain ~ valsalva','Distribution','binomial');
+mdl_valsalva = fitglm(data_comp,'neckPain ~ valsalva','Distribution','binomial','Link','logit');
 tbl_valsalvaNp = brm_tbl_plot(mdl_valsalva);
-mdl_position = fitglm(data_comp,'neckPain ~ position','Distribution','binomial');
+mdl_position = fitglm(data_comp,'neckPain ~ position','Distribution','binomial','Link','logit');
 tbl_positionNp = brm_tbl_plot(mdl_position);
-mdl_dx = fitglm(data_comp,'neckPain ~ ICHD3dx','Distribution','binomial');
+mdl_dx = fitglm(data_comp,'neckPain ~ ICHD3dx','Distribution','binomial','Link','logit');
 tbl_dxNp = brm_tbl_plot(mdl_dx);
 
-mdl_lighthead = fitglm(data_comp,'neckPain ~ lighthead','Distribution','binomial');
+mdl_lighthead = fitglm(data_comp,'neckPain ~ lighthead','Distribution','binomial','Link','logit');
 tbl_lightheadNp = brm_tbl_plot(mdl_lighthead);
-mdl_ringing = fitglm(data_comp,'neckPain ~ ringing','Distribution','binomial');
+mdl_ringing = fitglm(data_comp,'neckPain ~ ringing','Distribution','binomial','Link','logit');
 tbl_ringingNp = brm_tbl_plot(mdl_ringing);
-mdl_spinning = fitglm(data_comp,'neckPain ~ spinning','Distribution','binomial');
+mdl_spinning = fitglm(data_comp,'neckPain ~ spinning','Distribution','binomial','Link','logit');
 tbl_spinningNp = brm_tbl_plot(mdl_spinning);
-mdl_balance = fitglm(data_comp,'neckPain ~ balance','Distribution','binomial');
+mdl_balance = fitglm(data_comp,'neckPain ~ balance','Distribution','binomial','Link','logit');
 tbl_balanceNp = brm_tbl_plot(mdl_balance);
-mdl_thinking = fitglm(data_comp,'neckPain ~ thinking','Distribution','binomial');
+mdl_thinking = fitglm(data_comp,'neckPain ~ thinking','Distribution','binomial','Link','logit');
 tbl_thinkingNp = brm_tbl_plot(mdl_thinking);
-mdl_blurry = fitglm(data_comp,'neckPain ~ blurry','Distribution','binomial');
+mdl_blurry = fitglm(data_comp,'neckPain ~ blurry','Distribution','binomial','Link','logit');
 tbl_blurryNp = brm_tbl_plot(mdl_blurry);
-mdl_sensory = fitglm(data_comp,'neckPain ~ sensory_sensitivity','Distribution','binomial');
+mdl_sensory = fitglm(data_comp,'neckPain ~ sensory_sensitivity','Distribution','binomial','Link','logit');
 tbl_sensoryNp = brm_tbl_plot(mdl_sensory);
-mdl_tingling = fitglm(data_comp,'neckPain ~ tingling','Distribution','binomial');
+mdl_tingling = fitglm(data_comp,'neckPain ~ tingling','Distribution','binomial','Link','logit');
 tbl_tinglingNp = brm_tbl_plot(mdl_tingling);
-mdl_dysauto = fitglm(data_comp,'neckPain ~ dysauto','Distribution','binomial');
+mdl_dysauto = fitglm(data_comp,'neckPain ~ dysauto','Distribution','binomial','Link','logit');
 tbl_dysautoNp = brm_tbl_plot(mdl_dysauto);
-mdl_anx = fitglm(data_comp,'neckPain ~ anx','Distribution','binomial');
+mdl_anx = fitglm(data_comp,'neckPain ~ anx','Distribution','binomial','Link','logit');
 tbl_anxNp = brm_tbl_plot(mdl_anx);
-mdl_dep = fitglm(data_comp,'neckPain ~ dep','Distribution','binomial');
+mdl_dep = fitglm(data_comp,'neckPain ~ dep','Distribution','binomial','Link','logit');
 tbl_depNp = brm_tbl_plot(mdl_dep);
-mdl_abd = fitglm(data_comp,'neckPain ~ abd','Distribution','binomial');
+mdl_abd = fitglm(data_comp,'neckPain ~ abd','Distribution','binomial','Link','logit');
 tbl_abdNp = brm_tbl_plot(mdl_abd);
 
 
 % multivariable
 mdl_Mult = fitglm(data_comp,...
-    ['neckPain ~ ageY + gender + race + ethnicity + dailycont + severity_grade + pedmidas_grade + freq_bad + pain_lat + active + valsalva + position + pulsate + pressure + neuralgia + lighthead + spinning + balance + ringing + thinking' ...
+    ['neckPain ~ ageY + gender + race + dailycont + severity_grade + pedmidas_grade + pain_lat + active + valsalva + position + pulsate + pressure + neuralgia + lighthead + spinning + balance + ringing + thinking' ...
     ' + blurry + sensory_sensitivity + tingling + ICHD3dx + dysauto + abd + anx + dep'],...
-    'Distribution','binomial');
+    'Distribution','binomial','Link','logit');
 tbl_MultNp = brm_tbl_plot(mdl_Mult);
-
+ax = gca; ax.Box = 'off'; ax.TickDir = 'out'; ax.XLim = [0.4 3];
 
 % Remove non-significant covariates (p<0.1)
 mdl_MultFinal = fitglm(data_comp,...
-    'neckPain ~ ageY + gender + race + dailycont + pedmidas_grade + freq_bad + pain_lat + active + position + pressure + neuralgia + balance + ringing + sensory_sensitivity + tingling + abd',...
-    'Distribution','binomial');
+    ['neckPain ~ ageY + gender + race + dailycont + pedmidas_grade + pain_lat + active + position + pressure + neuralgia + balance + ringing' ...
+    ' + sensory_sensitivity + tingling + abd + anx + dysauto'],...
+    'Distribution','binomial','Link','logit');
 tbl_MultFinalNp = brm_tbl_plot(mdl_MultFinal);
+ax = gca; ax.Box = 'off'; ax.TickDir = 'out'; ax.XLim = [0.4 3];
 
 %% compare those who completed enough of the questionnaire to be included, vs. those who had incomplete information
 
-mdl_incomp = fitglm(comp_incomp,'complete ~ ageY + gender + race + ethnicity','Distribution','binomial');
+mdl_incomp = fitglm(comp_incomp,'complete ~ ageY + gender + race + ethnicity','Distribution','binomial','Link','logit');
 tbl_incomp = brm_tbl_plot(mdl_incomp);
-
-[a,b,c] = runstest(data_comp.freq_bad,'ud');
-[a2,b2,c2] = runstest(data_comp.p_pedmidas_score,'ud')
